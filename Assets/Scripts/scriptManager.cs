@@ -2,134 +2,123 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System;
+using System.Linq;
 using System.IO;
 using UnityEngine.UI;
 using System.Globalization;
+using UnityEngine.EventSystems;
 
-public class scriptManager : MonoBehaviour
+public class ScriptManager : MonoBehaviour
 {
     public GameObject SoundManager;
     private string currentTime = "";
-    private int seconds;
     private string[] splitDuration;
-    List<int> script_timestamps = new List<int>();
-    List<string> scriptListed = new List<string>();
+    List<string> scriptRedListed = new List<string>();
+    List<string> scriptBlackListed = new List<string>();
     Text txtRecensione;
-    string test;
-    int i = 0;
-    int j = 0;
+    private Dictionary<int, string> scriptDict = new Dictionary<int, string>();
+    private List<String> scriptList = new List<string>();
 
-    private void populateList(){
-        
-        script_timestamps.Add(0);
-        script_timestamps.Add(3);
-        script_timestamps.Add(6);
-        script_timestamps.Add(9);
-    }
-
-
-
-    private string script = "Salve a tutti dal vostro personal sommelier" + Environment.NewLine +
-                             "ci troviamo nel cuore del Valpolicella classico" + Environment.NewLine +
-                             "e abbiamo nel bicchiere uno dei prodotti" + Environment.NewLine +
-                             "che sono il fiore all'occhiello dell'enologia nazionale, una" + Environment.NewLine +
-                             "marrone del Valpolicella classico, l'azienda che ce lo" + Environment.NewLine +
-                             "presenta. La bonazzi boscaini dei fratelli Giovanni Luigi" + Environment.NewLine +
-                             "ci da oggi in gustazione un'annata, 2006.";
+    [SerializeField] ScrollRect autoScrollRect;
+    [SerializeField] private RectTransform contentRectTransform;
     
-    private List<string> stringConvert(string baseScript){
-        List<string> scriptOutput = new List<string>();
-        StringReader sr = new StringReader(baseScript);
-        string line;
-        while ((line = sr.ReadLine()) != null) {
-            scriptOutput.Add(line);
-        }
-        return scriptOutput;
-    }
-
-    private int timestampToSec(int minutesFunc, int secondsFunc){
-
-        int min_from_sec = minutesFunc * 60;
-        return min_from_sec + secondsFunc;
-    }
-
-
     // Start is called before the first frame update
     void Start()
-    {        
-       populateList();
+    {
+        txtRecensione = GameObject
+            .Find(
+                "Canvas/Panel/Panel/ScrollViewAscolta/Viewport/Content/ScrollViewRecensione/Viewport/Content/txtRecensione")
+            .GetComponent<Text>();
 
-       txtRecensione = GameObject.Find("Canvas/Panel/Panel/ScrollViewAscolta/Viewport/Content/ScrollViewRecensione/Viewport/Content/txtRecensione").GetComponent<Text>();
-        
-       txtRecensione.text = (script);
-       scriptListed = stringConvert(script);
+        scriptDict[1] = "Salve a tutti dal vostro personal sommelier.";
+        scriptDict[3] = "Ci troviamo nel cuore del Valpolicella classico";
+        scriptDict[6] = "e abbiamo nel bicchiere uno dei prodotti";
+        scriptDict[9] = "che sono il fiore all'occhiello dell'enologia nazionale: un";
+        scriptDict[12] = "amarone del Valpolicella classico. L'azienda che ce lo";
+        scriptDict[15] = "presenta, la Bonazzi Boscalini dei fratelli Giovanni e Luigi";
+        scriptDict[19] = "ci da oggi in degustazione un'annata 2006.";
+        scriptDict[23] = "Quali sono i vitigni dell'amarone innanzitutto";
+
+        foreach (KeyValuePair<int, string> scriptScorePair in scriptDict)
+        {
+            scriptList.Add(scriptScorePair.Value);
+        }
+
+        txtRecensione.text = (string.Join("\n", scriptList));
+
+        if (autoScrollRect == null) autoScrollRect = GetComponent<ScrollRect>();
+
     }
+
+
 
     // Update is called once per frame
     void Update()
     {
-        
-
-        /* **RAGIONAMENTO DELL'ALGORITMO**
-
-            Se il timestamp è dentro un range di secondi della riga, allora carica tutte le righe fino alla riga corrente con
-            il tag del cambio colore e carica gli altri senza modifica al tag.
-            
-        */
-
-        
         currentTime = SoundManager.GetComponent<SoundManager>().getCurrentTime();
+
         int script_minutes = 0;
         int script_seconds = 0;
+
         splitDuration = currentTime.Split(':');
 
-        if (splitDuration.Length > 1){
-            if (!(String.IsNullOrEmpty(splitDuration[0])) || !(String. IsNullOrEmpty(splitDuration[1]))){
+        if (splitDuration.Length > 1)
+        {
+            if (!(String.IsNullOrEmpty(splitDuration[0])) || !(String.IsNullOrEmpty(splitDuration[1])))
+            {
                 script_minutes = Int32.Parse(splitDuration[0]);
                 script_seconds = Int32.Parse(splitDuration[1]);
             }
         }
 
-       
-        if(i < script_timestamps.Count && script_seconds > 0){
+        int totalSeconds = 0;
 
-            
-            if(i==0){
-                test = "<color=red>";
-                test += Environment.NewLine + scriptListed[i] + Environment.NewLine;
-                test += "</color>";
-                txtRecensione.text = test;
-                ++i;
-                
-            }else{ 
-                
-                Debug.Log("Timestamps " + timestampToSec(script_minutes, script_seconds));
-                if(timestampToSec(script_minutes, script_seconds) > script_timestamps[i-1] && timestampToSec(script_minutes, script_seconds) < script_timestamps[i] ){
-                    test = "<color=red>";
-                                    
-                                    if(j <= i){
-                                        Debug.Log("i: " + i);
-                                        Debug.Log("j: " + j);
-                                        test += Environment.NewLine + scriptListed[j];
-                                        test += "</color>";
-                                        txtRecensione.text = test;
-                                        ++j;
-                                    }
-                                    
-                                    ++i;
-                                        
-                }
-            }
+        totalSeconds = script_minutes * 60 + script_seconds;
 
+        scriptRedListed = scriptDict
+            .Where(item => item.Key <= totalSeconds)
+            .Select(item => item.Value)
+            .ToList();
         
-        
-        }else{
-            i = 0;
-            j = 0;
+   
+        scriptBlackListed = scriptDict
+            .Where(item => item.Key > totalSeconds)
+            .Select(item => item.Value)
+            .ToList();
+
+        if (scriptRedListed.Count > 0)
+        {
+            scriptBlackListed.Insert(0, "");
         }
-
-    
         
+        txtRecensione.text = "<color=blue>" + string.Join("\n", scriptRedListed) + "</color>" +
+                             string.Join("\n", scriptBlackListed);
 
+        // Calculate the total height of the content
+        float totalContentHeight = contentRectTransform.rect.height;
+
+        // Calculate the height of a single line of text in the ScrollView
+        float lineHeight = txtRecensione.fontSize + txtRecensione.lineSpacing;
+
+        // Calculate the position of the highlighted text (in pixels) from the top of the content
+        float highlightedTextPosition = (scriptRedListed.Count * lineHeight) - lineHeight;
+
+        // Calculate the height of the ScrollView viewport
+        float scrollViewViewportHeight = autoScrollRect.viewport.rect.height;
+
+        // Calculate the maximum vertical scroll position (bottom-most position of the ScrollView)
+        float maxVerticalScrollPosition = totalContentHeight - scrollViewViewportHeight;
+
+        // Calculate the target vertical scroll position based on the highlighted text position
+        float targetVerticalScrollPosition = Mathf.Clamp(highlightedTextPosition, 0f, maxVerticalScrollPosition);
+
+        // Calculate the normalized vertical scroll position (between 0 and 1)
+        float normalizedScrollPosition = targetVerticalScrollPosition / maxVerticalScrollPosition;
+   
+        // Set the vertical scroll position of the Scrollbar directly
+        autoScrollRect.verticalScrollbar.value = 1f - normalizedScrollPosition;
+        
+        
     }
+
 }
